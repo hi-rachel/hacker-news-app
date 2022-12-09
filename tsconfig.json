@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    // any type x 모든 type을 명시해야 하는 옵션
+    "strict": true,
+    // js file에 사용될 문법 체계 설정
+    "target": "ES5",
+    "module": "CommonJS",
+    "alwaysStrict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "sourceMap": true,
+    "downlevelIteration": true,
+    "outDir": "dist"
+  }
+}

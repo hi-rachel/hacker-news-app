@@ -1,21 +1,51 @@
-const container = document.getElementById("root");
-const ajax = new XMLHttpRequest();
-const content = document.createElement("div");
+// type Alias 작성
+type Store = {
+  currentPage: number;
+  feeds: NewsFeed[];
+};
+
+type News = {
+  id: number;
+  time_ago: string;
+  title: string;
+  url: string;
+  user: string;
+  content: string;
+};
+
+type NewsFeed = News & {
+  comments_count: number;
+  points: number;
+  read?: boolean;
+};
+
+type NewsDetail = News & {
+  comments: [];
+};
+
+type NewsComment = News & {
+  comments: [];
+  level: number;
+};
+
+const container: HTMLElement | null = document.getElementById("root");
+const ajax: XMLHttpRequest = new XMLHttpRequest();
 const NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 const CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
-const store = {
+const store: Store = {
   currentPage: 1,
   feeds: [],
 };
 
-function getData(url) {
+// Generic 표현 사용
+function getData<AjaxResponse>(url: string): AjaxResponse {
   ajax.open("GET", url, false);
   ajax.send();
 
   return JSON.parse(ajax.response);
 }
 
-function makeFeeds(feeds) {
+function makeFeeds(feeds: NewsFeed[]): NewsFeed[] {
   for (let i = 0; i < feeds.length; i++) {
     feeds[i].read = false;
   }
@@ -23,8 +53,17 @@ function makeFeeds(feeds) {
   return feeds;
 }
 
-function newsFeed() {
-  let newsFeed = store.feeds;
+function updateView(html: string): void {
+  // type guard
+  if (container != null) {
+    container.innerHTML = html;
+  } else {
+    console.error("최상위 컨테이너가 없어 UI를 진행하지 못합니다.");
+  }
+}
+
+function newsFeed(): void {
+  let newsFeed: NewsFeed[] = store.feeds;
   const newsList = [];
   let template = `
     <div class="bg-gray-600 min-h-screen">
@@ -52,7 +91,7 @@ function newsFeed() {
   `;
 
   if (newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeeds(getData(NEWS_URL));
+    newsFeed = store.feeds = makeFeeds(getData<NewsFeed[]>(NEWS_URL));
   }
 
   for (let i = (store.currentPage - 1) * 10; i < store.currentPage * 10; i++) {
@@ -84,16 +123,19 @@ function newsFeed() {
   template = template.replace(`{{__news_feed__}}`, newsList.join(""));
   template = template.replace(
     `{{__prev_page__}}`,
-    store.currentPage > 1 ? store.currentPage - 1 : 1
+    String(store.currentPage > 1 ? store.currentPage - 1 : 1)
   );
-  template = template.replace(`{{__next_page__}}`, store.currentPage + 1);
+  template = template.replace(
+    `{{__next_page__}}`,
+    String(store.currentPage + 1)
+  );
 
-  container.innerHTML = template;
+  updateView(template);
 }
 
-function newsDetail() {
+function newsDetail(): void {
   const id = location.hash.substring(7);
-  const newsContent = getData(CONTENT_URL.replace("@id", id));
+  const newsContent = getData<NewsDetail>(CONTENT_URL.replace("@id", id));
   let template = `
     <div class="bg-gray-600 min-h-screen pb-8">
       <div class="bg-white text-xl">
@@ -129,38 +171,38 @@ function newsDetail() {
       break;
     }
   }
-
-  function makeComment(comments, called = 0) {
-    const commentString = [];
-
-    for (let i = 0; i < comments.length; i++) {
-      // 대댓글이 추가 될 때마다 40px 들여쓰기 설정
-      commentString.push(`
-        <div style="padding-left: ${called * 40}px;" class="mt-4">
-          <div class="text-gray-400">
-            <i class="fa fa-sort-up mr-2"></i>
-            <strong>${comments[i].user}</strong> ${comments[i].time_ago}
-          </div>
-          <p class="text-gray-700">${comments[i].content}</p>
-        </div>      
-      `);
-      // 대댓글 확인
-      if (comments[i].comments.length > 0) {
-        // 대댓글이 얼마나 있는지 끝을 모르는 상황에서 재귀 호출 사용
-        commentString.push(makeComment(comments[i].comments, called + 1));
-      }
-    }
-
-    return commentString.join("");
-  }
-
-  container.innerHTML = template.replace(
-    "{{__comments__}}",
-    makeComment(newsContent.comments)
+  updateView(
+    template.replace("{{__comments__}}", makeComment(newsContent.comments))
   );
 }
 
-function router() {
+function makeComment(comments: NewsComment[]): string {
+  const commentString = [];
+
+  for (let i = 0; i < comments.length; i++) {
+    const comment: NewsComment = comments[i];
+
+    // 대댓글이 추가 될 때마다 40px 들여쓰기 설정
+    commentString.push(`
+        <div style="padding-left: ${comment.level * 40}px;" class="mt-4">
+          <div class="text-gray-400">
+            <i class="fa fa-sort-up mr-2"></i>
+            <strong>${comment.user}</strong> ${comment.time_ago}
+          </div>
+          <p class="text-gray-700">${comment.content}</p>
+        </div>      
+      `);
+    // 대댓글 확인
+    if (comment.comments.length > 0) {
+      // 대댓글이 얼마나 있는지 끝을 모르는 상황에서 재귀 호출 사용
+      commentString.push(makeComment(comment.comments));
+    }
+  }
+
+  return commentString.join("");
+}
+
+function router(): void {
   const routerPath = location.hash;
 
   if (routerPath === "") {
